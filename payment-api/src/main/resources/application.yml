@@ -1,0 +1,35 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: payment-api
+
+grpc:
+  client:
+    ledger-service:
+      address: static://${LEDGER_SERVICE_HOST:localhost}:${LEDGER_SERVICE_PORT:9091}
+      negotiation-type: plaintext # Plaintext for local dev/Phases 1-3, mTLS enabled in Phase 4
+      enable-keep-alive: true
+      keep-alive-without-calls: true
+
+aws:
+  dynamodb:
+    endpoint: ${AWS_DYNAMODB_ENDPOINT:http://localhost:4566}
+    region: ${AWS_REGION:us-east-1}
+    table-name: ${IDEMPOTENCY_TABLE_NAME:safepay_idempotency_keys}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: always
