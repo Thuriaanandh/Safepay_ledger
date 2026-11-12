@@ -1,0 +1,14 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+
+rootProject.name = 'safepay-ledger'
+
+include 'common'
+include 'payment-api'
+include 'ledger-service'
+include 'notification-worker'
+include 'reconciliation'

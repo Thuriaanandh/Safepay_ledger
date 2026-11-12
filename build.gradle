@@ -1,0 +1,62 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.3.4' apply false
+    id 'io.spring.dependency-management' version '1.1.6' apply false
+    id 'com.google.protobuf' version '0.9.4' apply false
+}
+
+allprojects {
+    group = 'com.safepay'
+    version = '0.1.0-SNAPSHOT'
+
+    repositories {
+        mavenCentral()
+    }
+}
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'io.spring.dependency-management'
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(21)
+        }
+    }
+
+    dependencyManagement {
+        imports {
+            mavenBom org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES
+            mavenBom 'software.amazon.awssdk:bom:2.28.16'
+            mavenBom 'org.testcontainers:testcontainers-bom:1.20.2'
+            mavenBom 'io.grpc:grpc-bom:1.68.0'
+        }
+    }
+
+    dependencies {
+        // Essential test dependencies for all modules
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testImplementation 'org.assertj:assertj-core'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+
+    test {
+        useJUnitPlatform()
+        // Hardware constraint: Keep JVM heap low during test runs
+        jvmArgs = [
+            '-Xms64m',
+            '-Xmx256m',
+            '-XX:+UseSerialGC',
+            '-XX:MaxMetaspaceSize=128m'
+        ]
+        testLogging {
+            events "passed", "skipped", "failed"
+            showStandardStreams = false
+        }
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.compilerArgs.addAll(['-parameters', '-Xlint:unchecked'])
+    }
+}

@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package com.safepay.proto;
+
+option java_multiple_files = true;
+option java_package = "com.safepay.proto";
+option java_outer_classname = "TransferProto";
+
+service TransferService {
+  rpc ProcessTransfer (TransferRequest) returns (TransferResponse);
+  rpc GetTransfer (GetTransferRequest) returns (TransferResponse);
+}
+
+message TransferRequest {
+  string transfer_id = 1;
+  string idempotency_key = 2;
+  string source_account_id = 3;
+  string destination_account_id = 4;
+  int64 amount_cents = 5;
+  string currency = 6;
+  string description = 7;
+}
+
+message GetTransferRequest {
+  string transfer_id = 1;
+}
+
+enum TransferStatus {
+  TRANSFER_STATUS_UNSPECIFIED = 0;
+  TRANSFER_STATUS_PENDING = 1;
+  TRANSFER_STATUS_COMPLETED = 2;
+  TRANSFER_STATUS_FAILED = 3;
+}
+
+message TransferResponse {
+  string transfer_id = 1;
+  TransferStatus status = 2;
+  int64 amount_cents = 3;
+  string currency = 4;
+  string error_message = 5;
+  int64 created_at = 6;
+}

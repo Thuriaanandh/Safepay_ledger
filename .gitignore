@@ -1,0 +1,42 @@
+# Java & Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+bin/
+out/
+*.class
+
+# IDE & Editor
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+
+# OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Environment & Secrets
+.env
+.env.local
+*.pem
+*.key
+*.p12
+*.jks
+!common/src/test/resources/certs/*.pem
+!common/src/test/resources/certs/*.key
+
+# LocalStack & Docker
+.localstack/
+data/
+
+# Testing & Artifacts
+k6/results/
+reports/
+test-results/
