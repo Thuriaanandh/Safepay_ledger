@@ -23,12 +23,31 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all # Highest durability: broker and in-sync replicas must acknowledge
+      retries: 3
+      properties:
+        enable.idempotence: true # Idempotent producer prevents duplicate broker writes
 
 grpc:
   server:
     port: ${GRPC_SERVER_PORT:9091}
     security:
       enabled: false # Plaintext in dev/Phases 1-3, mTLS enabled in Phase 4
+
+safepay:
+  kafka:
+    topics:
+      transfer-events: transfer-events
+  outbox:
+    relay:
+      enabled: ${OUTBOX_RELAY_ENABLED:true}
+    poll-interval-ms: 500
+    batch-size: 50
 
 management:
   endpoints:

@@ -1,0 +1,8 @@
+spring:
+  kafka:
+    listener:
+      auto-startup: false # Disable auto listener in unit tests
+
+safepay:
+  webhook:
+    mock-mode: true

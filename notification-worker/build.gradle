@@ -6,6 +6,9 @@ plugins {
 dependencies {
     implementation project(':common')
 
+    // Web & HTTP Client for Webhook Dispatch
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
     // Kafka Consumer
     implementation 'org.springframework.kafka:spring-kafka'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
