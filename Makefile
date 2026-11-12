@@ -1,4 +1,4 @@
-.PHONY: help core obs obs-down k8s k8s-deploy k8s-down down clean build test stats docker-build tf-init tf-validate
+.PHONY: help core obs obs-down k8s k8s-deploy k8s-down down clean build test stats docker-build tf-init tf-validate load chaos
 
 help:
 	@echo "SafePay Ledger Build & Lifecycle Targets:"
@@ -11,6 +11,8 @@ help:
 	@echo "  make tf-init      - Initialize Terraform against LocalStack"
 	@echo "  make tf-validate  - Validate Terraform syntax and policies"
 	@echo "  make docker-build - Build distroless Docker images for all services"
+	@echo "  make load         - Run k6 load test and 50 concurrent deduplication check"
+	@echo "  make chaos        - Run manual chaos kill test on ledger-service"
 	@echo "  make down         - Stop all running containers"
 	@echo "  make build        - Build all modules with Gradle"
 	@echo "  make test         - Run JUnit tests"
@@ -65,6 +67,12 @@ k8s-deploy:
 
 k8s-down:
 	kind delete cluster --name safepay
+
+load:
+	k6 run k6/transfer-load-test.js
+
+chaos:
+	powershell -ExecutionPolicy Bypass -File scripts/chaos-kill-ledger.ps1 -Target docker
 
 down:
 	docker compose -f docker-compose.yml down

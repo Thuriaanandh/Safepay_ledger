@@ -1,0 +1,77 @@
+name: Full-Stack E2E on kind (Cloud Runner)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  kind-e2e:
+    name: Full-Stack kind E2E, Load & Chaos
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      - name: Set up k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Create kind Cluster
+        uses: helm/kind-action@v1.10.0
+        with:
+          cluster_name: safepay
+          config: k8s/kind-config.yaml
+
+      - name: Install cert-manager
+        run: |
+          kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.16.1/cert-manager.yaml
+          kubectl wait --for=condition=Available deployment/cert-manager-webhook -n cert-manager --timeout=120s
+
+      - name: Build and Load Docker Images into kind
+        run: |
+          chmod +x ./gradlew
+          ./gradlew bootJar -x test
+          docker build -t payment-api:latest -f payment-api/Dockerfile .
+          docker build -t ledger-service:latest -f ledger-service/Dockerfile .
+          docker build -t notification-worker:latest -f notification-worker/Dockerfile .
+          docker build -t reconciliation:latest -f reconciliation/Dockerfile .
+          kind load docker-image payment-api:latest --name safepay
+          kind load docker-image ledger-service:latest --name safepay
+          kind load docker-image notification-worker:latest --name safepay
+          kind load docker-image reconciliation:latest --name safepay
+
+      - name: Deploy Workloads to kind
+        run: |
+          kubectl apply -f k8s/00-namespace.yaml
+          kubectl apply -f k8s/01-postgres.yaml
+          kubectl apply -f k8s/02-kafka.yaml
+          kubectl apply -f k8s/03-localstack.yaml
+          kubectl apply -f k8s/04-cert-manager.yaml
+          kubectl apply -f k8s/05-ledger-service.yaml
+          kubectl apply -f k8s/06-payment-api.yaml
+          kubectl apply -f k8s/07-notification-worker.yaml
+          kubectl apply -f k8s/08-reconciliation-cronjob.yaml
+          echo "Waiting for core services to become ready..."
+          kubectl wait --for=condition=Ready pod -l app=postgres -n safepay --timeout=120s
+          kubectl wait --for=condition=Ready pod -l app=kafka -n safepay --timeout=120s
+          kubectl wait --for=condition=Ready pod -l app=localstack -n safepay --timeout=120s
+          kubectl wait --for=condition=Ready pod -l app=ledger-service -n safepay --timeout=180s
+          kubectl wait --for=condition=Ready pod -l app=payment-api -n safepay --timeout=180s
+
+      - name: Run Chaos Test (Acceptance Criterion 2)
+        run: |
+          chmod +x scripts/chaos-kill-ledger.sh
+          ./scripts/chaos-kill-ledger.sh k8s
+
+      - name: Port-Forward payment-api and Run k6 Smoke Test
+        run: |
+          kubectl port-forward svc/payment-api -n safepay 8080:8080 &
+          sleep 5
+          k6 run k6/transfer-load-test.js

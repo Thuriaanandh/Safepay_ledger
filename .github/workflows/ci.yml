@@ -1,0 +1,121 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  build-and-test:
+    name: Build & Unit/Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21 (Eclipse Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      - name: Make Gradle Wrapper Executable
+        run: chmod +x ./gradlew
+
+      - name: Execute Gradle Tests
+        run: ./gradlew test --no-daemon
+
+      - name: Publish Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports
+          path: '**/build/reports/tests/'
+
+  terraform-validate:
+    name: Terraform IaC Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.0
+
+      - name: Initialize Terraform
+        run: |
+          cd terraform
+          terraform init -backend=false
+
+      - name: Validate Terraform Syntax & Policies
+        run: |
+          cd terraform
+          terraform validate
+
+  docker-build:
+    name: Multi-Stage Distroless Docker Build
+    runs-on: ubuntu-latest
+    needs: [build-and-test]
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build payment-api Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: payment-api/Dockerfile
+          push: false
+          tags: safepay/payment-api:ci
+
+      - name: Build ledger-service Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ledger-service/Dockerfile
+          push: false
+          tags: safepay/ledger-service:ci
+
+      - name: Build notification-worker Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: notification-worker/Dockerfile
+          push: false
+          tags: safepay/notification-worker:ci
+
+      - name: Build reconciliation Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: reconciliation/Dockerfile
+          push: false
+          tags: safepay/reconciliation:ci
+
+  security-scan:
+    name: Dependency & CVE Vulnerability Scan
+    runs-on: ubuntu-latest
+    needs: [build-and-test]
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0' # Audit mode in CI
