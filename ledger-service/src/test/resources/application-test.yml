@@ -1,0 +1,11 @@
+spring:
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+grpc:
+  server:
+    port: -1 # In-process / random port for tests

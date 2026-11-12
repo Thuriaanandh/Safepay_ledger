@@ -1,0 +1,40 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: ledger-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/safepay_ledger}
+    username: ${SPRING_DATASOURCE_USERNAME:safepay}
+    password: ${SPRING_DATASOURCE_PASSWORD:safepay_secret}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 30000
+      connection-timeout: 5000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+        show_sql: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+grpc:
+  server:
+    port: ${GRPC_SERVER_PORT:9091}
+    security:
+      enabled: false # Plaintext in dev/Phases 1-3, mTLS enabled in Phase 4
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: always
