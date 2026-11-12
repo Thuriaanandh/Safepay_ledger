@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: "SafePay Dashboards"
+    orgId: 1
+    folder: "SafePay Ledger"
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

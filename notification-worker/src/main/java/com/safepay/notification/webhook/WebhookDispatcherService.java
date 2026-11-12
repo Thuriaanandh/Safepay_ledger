@@ -2,8 +2,11 @@ package com.safepay.notification.webhook;
 
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -18,15 +21,27 @@ public class WebhookDispatcherService {
     private final WebhookClient webhookClient;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final String dltTopic;
+    private final MeterRegistry meterRegistry;
 
     public WebhookDispatcherService(
         WebhookClient webhookClient,
         KafkaTemplate<String, String> kafkaTemplate,
         @Value("${safepay.kafka.topics.dlq:transfer-events-dlq}") String dltTopic
     ) {
+        this(webhookClient, kafkaTemplate, dltTopic, new SimpleMeterRegistry());
+    }
+
+    @Autowired
+    public WebhookDispatcherService(
+        WebhookClient webhookClient,
+        KafkaTemplate<String, String> kafkaTemplate,
+        @Value("${safepay.kafka.topics.dlq:transfer-events-dlq}") String dltTopic,
+        @Autowired(required = false) MeterRegistry meterRegistry
+    ) {
         this.webhookClient = webhookClient;
         this.kafkaTemplate = kafkaTemplate;
         this.dltTopic = dltTopic;
+        this.meterRegistry = meterRegistry != null ? meterRegistry : new SimpleMeterRegistry();
     }
 
     /**
@@ -38,6 +53,7 @@ public class WebhookDispatcherService {
     public void dispatch(String transferId, String payload) {
         log.info("Attempting webhook dispatch for transferId={}", transferId);
         webhookClient.sendNotification(transferId, payload);
+        meterRegistry.counter("safepay.notifications.dispatched.total").increment();
         log.info("Webhook dispatch confirmed for transferId={}", transferId);
     }
 
@@ -57,6 +73,7 @@ public class WebhookDispatcherService {
             payload
         );
 
+        meterRegistry.counter("safepay.notifications.dlq.total").increment();
         kafkaTemplate.send(dltTopic, transferId, dlqPayload);
         log.info("Poison message routed to Dead-Letter Topic '{}' for transferId={}", dltTopic, transferId);
     }

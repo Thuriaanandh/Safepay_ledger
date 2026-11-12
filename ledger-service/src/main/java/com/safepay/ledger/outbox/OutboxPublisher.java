@@ -3,6 +3,7 @@ package com.safepay.ledger.outbox;
 import com.safepay.ledger.domain.OutboxEventEntity;
 import com.safepay.ledger.domain.OutboxStatus;
 import com.safepay.ledger.repository.OutboxEventRepository;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,6 +15,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -66,12 +68,19 @@ public class OutboxPublisher {
         log.info("Relaying outbox event to Kafka: id={}, aggregateId={}, eventType={}",
             event.getId(), event.getAggregateId(), event.getEventType());
 
-        // Use aggregateId (transferId) as Kafka partition key for strict per-entity ordering
-        CompletableFuture<SendResult<String, String>> future = kafkaTemplate.send(
+        // Construct ProducerRecord with partition key and distributed tracing context
+        ProducerRecord<String, String> record = new ProducerRecord<>(
             topic,
             event.getAggregateId(),
             event.getPayload()
         );
+
+        String traceparent = extractTraceparent(event.getPayload());
+        if (traceparent != null && !traceparent.isBlank()) {
+            record.headers().add("traceparent", traceparent.getBytes(StandardCharsets.UTF_8));
+        }
+
+        CompletableFuture<SendResult<String, String>> future = kafkaTemplate.send(record);
 
         future.whenComplete((result, ex) -> {
             if (ex == null) {
@@ -85,6 +94,19 @@ public class OutboxPublisher {
         });
 
         return future;
+    }
+
+    private String extractTraceparent(String payload) {
+        if (payload == null) return null;
+        int idx = payload.indexOf("\"traceparent\":\"");
+        if (idx != -1) {
+            int start = idx + 15;
+            int end = payload.indexOf("\"", start);
+            if (end != -1 && end > start) {
+                return payload.substring(start, end);
+            }
+        }
+        return null;
     }
 
     @Transactional

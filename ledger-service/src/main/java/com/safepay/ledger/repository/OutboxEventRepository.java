@@ -14,4 +14,5 @@ import java.util.UUID;
 public interface OutboxEventRepository extends JpaRepository<OutboxEventEntity, UUID> {
     List<OutboxEventEntity> findByStatusOrderByCreatedAtAsc(OutboxStatus status, Pageable pageable);
     Optional<OutboxEventEntity> findByAggregateId(String aggregateId);
+    long countByStatus(OutboxStatus status);
 }

@@ -1,0 +1,35 @@
+groups:
+  - name: safepay-ledger-alerts
+    rules:
+      - alert: LedgerImbalanceDetected
+        expr: safepay_ledger_imbalance_cents > 0
+        for: 10s
+        labels:
+          severity: critical
+          domain: payments
+        annotations:
+          summary: "CRITICAL: Double-entry ledger imbalance detected"
+          description: "Ledger invariant violated! Sum(Debits) != Sum(Credits). Discrepancy of {{ $value }} cents detected."
+          runbook_url: "docs/runbook.md#reconciling-ledger-imbalance"
+
+      - alert: OutboxLagCritical
+        expr: safepay_outbox_pending_events > 50
+        for: 1m
+        labels:
+          severity: warning
+          domain: messaging
+        annotations:
+          summary: "Transactional Outbox relay lag accumulating"
+          description: "There are {{ $value }} pending events in the outbox table waiting to publish to Kafka."
+          runbook_url: "docs/runbook.md#clearing-outbox-lag"
+
+      - alert: WebhookCircuitBreakerOpen
+        expr: resilience4j_circuitbreaker_state{state="open"} == 1
+        for: 15s
+        labels:
+          severity: warning
+          domain: notifications
+        annotations:
+          summary: "Notification webhook circuit breaker has tripped OPEN"
+          description: "Webhook service error rate exceeded 50%. Fallback DLQ routing is active."
+          runbook_url: "docs/runbook.md#handling-dlq-poison-messages"

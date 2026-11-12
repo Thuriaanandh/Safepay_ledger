@@ -10,7 +10,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.postgresql:postgresql'
 
-    // Metrics
+    // Structured JSON Logging & Metrics
+    implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
     implementation 'io.micrometer:micrometer-registry-prometheus'
 
     // Testing

@@ -1,0 +1,42 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: reconciliation
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/safepay_ledger}
+    username: ${SPRING_DATASOURCE_USERNAME:safepay}
+    password: ${SPRING_DATASOURCE_PASSWORD:safepay_secret}
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      idle-timeout: 30000
+      connection-timeout: 5000
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        format_sql: false
+        show_sql: false
+
+safepay:
+  reconciliation:
+    schedule-ms: ${RECONCILIATION_SCHEDULE_MS:30000}
+    cron-mode: ${RECONCILIATION_CRON_MODE:false}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: always
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true

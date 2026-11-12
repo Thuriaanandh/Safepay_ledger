@@ -10,6 +10,7 @@ import com.safepay.ledger.repository.LedgerTransactionRepository;
 import com.safepay.ledger.repository.OutboxEventRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -138,15 +139,22 @@ public class LedgerService {
         LedgerTransactionEntity savedTx = transactionRepository.save(tx);
 
         // 8. Transactional Outbox: Write event in SAME ACID transaction
-        // Schema payload contains necessary metadata for downstream workers
+        // Schema payload contains necessary metadata and distributed traceparent context
+        String traceId = MDC.get("trace_id");
+        String spanId = MDC.get("span_id");
+        String traceparent = (traceId != null && spanId != null)
+            ? String.format("00-%s-%s-01", traceId, spanId)
+            : (MDC.get("traceparent") != null ? MDC.get("traceparent") : "");
+
         String outboxPayload = String.format(
-            "{\"transferId\":\"%s\",\"sourceAccount\":\"%s\",\"destinationAccount\":\"%s\",\"amountCents\":%d,\"currency\":\"%s\",\"status\":\"COMPLETED\",\"timestamp\":%d}",
+            "{\"transferId\":\"%s\",\"sourceAccount\":\"%s\",\"destinationAccount\":\"%s\",\"amountCents\":%d,\"currency\":\"%s\",\"status\":\"COMPLETED\",\"timestamp\":%d,\"traceparent\":\"%s\"}",
             command.transferId(),
             command.sourceAccountNumber(),
             command.destinationAccountNumber(),
             command.amountCents(),
             command.currency(),
-            savedTx.getCreatedAt().toEpochMilli()
+            savedTx.getCreatedAt().toEpochMilli(),
+            traceparent
         );
 
         OutboxEventEntity outboxEvent = new OutboxEventEntity(

@@ -71,3 +71,42 @@ This runbook guides on-call and platform engineers when diagnosing, isolating, a
 ### Remediation
 1. Fix downstream mock endpoint or schema issue.
 2. Replay messages from DLQ to the main topic once the root cause is resolved.
+
+---
+
+## 4. Reconciling Ledger Imbalance (`LedgerImbalanceDetected` Alert)
+
+### Symptoms
+- Prometheus alert `LedgerImbalanceDetected` fires with `severity: critical`.
+- Metric `safepay_ledger_imbalance_cents > 0`.
+- Grafana "Double-Entry Ledger Imbalance" stat panel displays bright RED.
+
+### Immediate Triage Protocol
+1. **Identify the Imbalance Discrepancy:**
+   Query the exact debits and credits totals in PostgreSQL:
+   ```sql
+   SELECT 
+       SUM(CASE WHEN direction = 'DEBIT' THEN amount_cents ELSE 0 END) AS total_debits,
+       SUM(CASE WHEN direction = 'CREDIT' THEN amount_cents ELSE 0 END) AS total_credits,
+       ABS(SUM(CASE WHEN direction = 'DEBIT' THEN amount_cents ELSE 0 END) - 
+           SUM(CASE WHEN direction = 'CREDIT' THEN amount_cents ELSE 0 END)) AS imbalance_cents
+   FROM ledger_postings;
+   ```
+2. **Locate Asymmetric or Corrupted Transactions:**
+   Find any transaction where postings do not sum to 0:
+   ```sql
+   SELECT 
+       transaction_id,
+       SUM(CASE WHEN direction = 'DEBIT' THEN amount_cents ELSE -amount_cents END) as net_postings
+   FROM ledger_postings
+   GROUP BY transaction_id
+   HAVING SUM(CASE WHEN direction = 'DEBIT' THEN amount_cents ELSE -amount_cents END) != 0;
+   ```
+3. **Run One-Shot Reconciliation Audit:**
+   Execute the reconciliation container in standalone CLI mode:
+   ```powershell
+   .\gradlew :reconciliation:bootRun --args="--safepay.reconciliation.cron-mode=true"
+   ```
+4. **Remediation & Correction:**
+   - If a software defect allowed an asymmetric posting, create an audit compensation entry (Adjustment Transaction) referencing the transaction ID.
+   - Never update existing rows in `ledger_postings` directly; always post offsetting corrective ledger entries to preserve immutable double-entry history.
