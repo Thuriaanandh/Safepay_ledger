@@ -1,0 +1,125 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-api
+  namespace: safepay
+  labels:
+    app: payment-api
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30080
+      name: http
+  selector:
+    app: payment-api
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-api
+  namespace: safepay
+  labels:
+    app: payment-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-api
+  template:
+    metadata:
+      labels:
+        app: payment-api
+    spec:
+      containers:
+        - name: payment-api
+          image: payment-api:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: LEDGER_SERVICE_HOST
+              value: "ledger-service"
+            - name: LEDGER_SERVICE_PORT
+              value: "9091"
+            - name: GRPC_NEGOTIATION_TYPE
+              value: "tls"
+            - name: AWS_DYNAMODB_ENDPOINT
+              value: "http://localstack:4566"
+            - name: AWS_REGION
+              value: "us-east-1"
+            - name: IDEMPOTENCY_TABLE_NAME
+              value: "safepay_idempotency_keys"
+            - name: MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED
+              value: "true"
+            - name: GRPC_CLIENT_LEDGER_SERVICE_SECURITY_AUTHORITY_OVERRIDE
+              value: "ledger-service"
+            - name: GRPC_CLIENT_LEDGER_SERVICE_SECURITY_TRUST_CERT_COLLECTION
+              value: "file:/etc/certs/ca.crt"
+            - name: GRPC_CLIENT_LEDGER_SERVICE_SECURITY_CLIENT_AUTH_ENABLED
+              value: "true"
+            - name: GRPC_CLIENT_LEDGER_SERVICE_SECURITY_CERTIFICATE_CHAIN
+              value: "file:/etc/certs/tls.crt"
+            - name: GRPC_CLIENT_LEDGER_SERVICE_SECURITY_PRIVATE_KEY
+              value: "file:/etc/certs/tls.key"
+          ports:
+            - containerPort: 8080
+              name: http
+          volumeMounts:
+            - name: certs
+              mountPath: /etc/certs
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              cpu: 500m
+              memory: 384Mi
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 25
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 5
+      volumes:
+        - name: certs
+          secret:
+            secretName: payment-api-tls
+            optional: true
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: payment-api-hpa
+  namespace: safepay
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: payment-api
+  minReplicas: 1
+  maxReplicas: 2
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 75
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: payment-api-pdb
+  namespace: safepay
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: payment-api

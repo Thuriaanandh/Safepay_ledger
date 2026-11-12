@@ -1,0 +1,23 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: safepay
+nodes:
+  - role: control-plane
+    image: kindest/node:v1.31.2
+    extraPortMappings:
+      # payment-api REST ingress port
+      - containerPort: 30080
+        hostPort: 8080
+        protocol: TCP
+      # Prometheus metrics
+      - containerPort: 30090
+        hostPort: 9090
+        protocol: TCP
+      # Grafana dashboards
+      - containerPort: 30300
+        hostPort: 3000
+        protocol: TCP
+      # Jaeger tracing UI
+      - containerPort: 31686
+        hostPort: 16686
+        protocol: TCP

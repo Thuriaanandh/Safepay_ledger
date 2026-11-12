@@ -1,0 +1,47 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: safepay-reconciliation-job
+  namespace: safepay
+  labels:
+    app: safepay-reconciliation
+spec:
+  # Run every 5 minutes to verify double-entry ledger invariant (sum of debits == sum of credits)
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: safepay-reconciliation
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: reconciliation
+              image: reconciliation:latest
+              imagePullPolicy: IfNotPresent
+              args:
+                - "--safepay.reconciliation.cron-mode=true"
+              env:
+                - name: SPRING_DATASOURCE_URL
+                  value: "jdbc:postgresql://postgres:5432/safepay_ledger"
+                - name: SPRING_DATASOURCE_USERNAME
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secret
+                      key: POSTGRES_USER
+                - name: SPRING_DATASOURCE_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secret
+                      key: POSTGRES_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: 250m
+                  memory: 256Mi

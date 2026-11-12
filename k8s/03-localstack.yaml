@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: localstack
+  namespace: safepay
+  labels:
+    app: localstack
+spec:
+  ports:
+    - port: 4566
+      targetPort: 4566
+      name: edge
+  selector:
+    app: localstack
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: localstack
+  namespace: safepay
+  labels:
+    app: localstack
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: localstack
+  template:
+    metadata:
+      labels:
+        app: localstack
+    spec:
+      containers:
+        - name: localstack
+          image: localstack/localstack:3.8
+          env:
+            - name: SERVICES
+              value: "dynamodb"
+            - name: DEFAULT_REGION
+              value: "us-east-1"
+            - name: AWS_DEFAULT_REGION
+              value: "us-east-1"
+          ports:
+            - containerPort: 4566
+              name: edge
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 300m
+              memory: 384Mi
+          livenessProbe:
+            httpGet:
+              path: /_localstack/health
+              port: 4566
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /_localstack/health
+              port: 4566
+            initialDelaySeconds: 10
+            periodSeconds: 5

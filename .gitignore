@@ -37,6 +37,19 @@ desktop.ini
 .localstack/
 data/
 
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
 # Testing & Artifacts
 k6/results/
 reports/

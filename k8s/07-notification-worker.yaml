@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-worker
+  namespace: safepay
+  labels:
+    app: notification-worker
+spec:
+  ports:
+    - port: 8082
+      targetPort: 8082
+      name: http
+  selector:
+    app: notification-worker
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-worker
+  namespace: safepay
+  labels:
+    app: notification-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-worker
+  template:
+    metadata:
+      labels:
+        app: notification-worker
+    spec:
+      containers:
+        - name: notification-worker
+          image: notification-worker:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka:9092"
+            - name: SAFEPAY_KAFKA_TOPICS_TRANSFER_EVENTS
+              value: "transfer-events"
+            - name: SAFEPAY_KAFKA_TOPICS_DLQ
+              value: "transfer-events-dlq"
+            - name: SAFEPAY_WEBHOOK_MOCK_MODE
+              value: "true"
+            - name: MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED
+              value: "true"
+          ports:
+            - containerPort: 8082
+              name: http
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              cpu: 500m
+              memory: 384Mi
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8082
+            initialDelaySeconds: 25
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8082
+            initialDelaySeconds: 15
+            periodSeconds: 5
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: notification-worker-pdb
+  namespace: safepay
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: notification-worker
