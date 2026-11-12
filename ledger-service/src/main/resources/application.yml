@@ -28,16 +28,20 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
-      acks: all # Highest durability: broker and in-sync replicas must acknowledge
+      acks: all
       retries: 3
       properties:
-        enable.idempotence: true # Idempotent producer prevents duplicate broker writes
+        enable.idempotence: true
 
 grpc:
   server:
     port: ${GRPC_SERVER_PORT:9091}
     security:
-      enabled: false # Plaintext in dev/Phases 1-3, mTLS enabled in Phase 4
+      enabled: ${GRPC_SECURITY_ENABLED:true}
+      certificate-chain: classpath:certs/ledger-service.crt
+      private-key: classpath:certs/ledger-service.key
+      trust-cert-collection: classpath:certs/ca.crt
+      client-auth: REQUIRE # Enforce mutual TLS: client must present certificate signed by trusted CA
 
 safepay:
   kafka:

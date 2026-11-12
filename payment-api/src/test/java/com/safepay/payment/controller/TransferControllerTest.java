@@ -7,6 +7,7 @@ import com.safepay.payment.dto.TransferRequestDto;
 import com.safepay.payment.dto.TransferResponseDto;
 import com.safepay.payment.idempotency.IdempotencyResult;
 import com.safepay.payment.idempotency.IdempotencyService;
+import com.safepay.payment.security.JwtTokenProvider;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,7 +28,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(TransferController.class)
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, JwtTokenProvider.class})
 @AutoConfigureMockMvc(addFilters = false)
 class TransferControllerTest {
 

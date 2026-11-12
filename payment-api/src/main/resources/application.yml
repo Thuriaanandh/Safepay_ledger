@@ -9,15 +9,27 @@ grpc:
   client:
     ledger-service:
       address: static://${LEDGER_SERVICE_HOST:localhost}:${LEDGER_SERVICE_PORT:9091}
-      negotiation-type: plaintext # Plaintext for local dev/Phases 1-3, mTLS enabled in Phase 4
+      negotiation-type: ${GRPC_NEGOTIATION_TYPE:tls}
       enable-keep-alive: true
       keep-alive-without-calls: true
+      security:
+        authority-override: ledger-service
+        trust-cert-collection: classpath:certs/ca.crt
+        client-auth-enabled: true
+        certificate-chain: classpath:certs/payment-api.crt
+        private-key: classpath:certs/payment-api.key
 
 aws:
   dynamodb:
     endpoint: ${AWS_DYNAMODB_ENDPOINT:http://localhost:4566}
     region: ${AWS_REGION:us-east-1}
     table-name: ${IDEMPOTENCY_TABLE_NAME:safepay_idempotency_keys}
+
+safepay:
+  jwt:
+    public-key-path: classpath:jwt/jwt-public.pem
+    private-key-path: classpath:jwt/jwt-private.pem
+    issuer: safepay-auth
 
 springdoc:
   swagger-ui:
